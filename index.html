@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Where the Rain Falls</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #dde4ec;
+      --surface: #eef1f5;
+      --text: #1e2a38;
+      --muted: #5a6e82;
+      --teal: #2b7fbf;
+      --teal-light: #63b3ed;
+      --line: rgba(30,42,56,0.12);
+      --dark-bg: #090e17;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Source Sans 3', sans-serif;
+      font-weight: 300;
+      line-height: 1.75;
+    }
+
+    /* ─── HERO ─────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 4rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Hero Background Images (Rainforest to Desert Fade) */
+    .hero-bg-container {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      opacity: 0.25;
+    }
+    .hero-bg-left {
+      flex: 1;
+      background: url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1200&q=80') center/cover no-repeat;
+      -webkit-mask-image: linear-gradient(to right, black 50%, transparent 100%);
+      mask-image: linear-gradient(to right, black 50%, transparent 100%);
+    }
+    .hero-bg-right {
+      flex: 1;
+      background: url('https://images.unsplash.com/photo-1473445730015-841f29a949ce?w=1200&q=80') center/cover no-repeat;
+      -webkit-mask-image: linear-gradient(to left, black 50%, transparent 100%);
+      mask-image: linear-gradient(to left, black 50%, transparent 100%);
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, var(--bg) 0%, transparent 20%, transparent 80%, var(--bg) 100%);
+      z-index: 1;
+    }
+
+    .hero > * { position: relative; z-index: 3; }
+    .hero .hero-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+    
+    .raindrop {
+      position: absolute;
+      width: 1.5px;
+      background: linear-gradient(to bottom, transparent, rgba(43,127,191,0.4));
+      border-radius: 2px;
+      animation: fall linear infinite;
+    }
+    @keyframes fall {
+      from { transform: translateY(-120px); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 0.6; }
+      to   { transform: translateY(110vh); opacity: 0; }
+    }
+    .hero-eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      line-height: 1.1;
+      max-width: 900px;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 em { font-style: italic; color: var(--teal); }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 580px;
+      margin-bottom: 0.75rem;
+    }
+    .hero-stat {
+      display: inline-block;
+      background: rgba(43,127,191,0.12);
+      border: 1px solid rgba(43,127,191,0.3);
+      border-radius: 6px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+      font-weight: 400;
+    }
+    .hero-stat strong { color: var(--teal); }
+    .hero-byline { font-size: 0.8rem; letter-spacing: 0.15em; color: var(--muted); }
+    .hero-scroll {
+      margin-top: 3rem;
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      color: var(--muted); font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase;
+      animation: bounce 2s ease-in-out infinite;
+      text-decoration: none;
+    }
+    .hero-scroll svg { width: 20px; }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(6px); }
+    }
+
+    /* ─── SHARED SECTION CHROME ────────────────────────── */
+    .section-light {
+      background: var(--bg);
+      padding: 6rem 2rem;
+    }
+    .section-inner {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    .viz-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .section-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.7rem, 3.5vw, 2.5rem);
+      line-height: 1.15;
+      margin-bottom: 0.4rem;
+    }
+    .section-lead {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 800px;
+    }
+
+    /* ─── INTERACTION HINT PILL ─────────────────────────── */
+    .hint-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(43,127,191,0.08);
+      border: 1px solid rgba(43,127,191,0.22);
+      border-radius: 20px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.72rem;
+      color: var(--teal);
+      letter-spacing: 0.04em;
+      margin-top: 0.8rem;
+    }
+    .hint-pill svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    /* ─── VIZ 1: BASELINE BAR ──────────────────────────── */
+    .bar-chart-wrap {
+      background: #1e2a38;
+      border-radius: 10px;
+      padding: 1.5rem 1.5rem 1rem;
+      position: relative;
+      overflow: visible;
+      margin-top: 1rem;
+    }
+    .bar-chart-wrap .chart-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #eef1f5;
+      margin-bottom: 0.15rem;
+    }
+    .bar-chart-wrap .chart-sub {
+      font-size: 0.68rem;
+      color: #8a9eb5;
+      margin-bottom: 1rem;
+    }
+    #bar-svg text { fill: #8a9eb5 !important; }
+    #threshold-label { fill: #eef1f5 !important; }
+
+    .drag-badge {
+      position: absolute;
+      top: 0.9rem;
+      right: 1rem;
+      background: rgba(43,127,191,0.18);
+      border: 1px solid rgba(43,127,191,0.3);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.66rem;
+      color: #63b3ed;
+      letter-spacing: 0.05em;
+      pointer-events: none;
+    }
+
+    .bar-annotations-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    @media (max-width: 820px) {
+      .bar-annotations-row {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+    .bar-annotation {
+      border-left: 3px solid var(--teal);
+      padding-left: 1rem;
+    }
+    .bar-annotation p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 0;
+    }
+    .bar-annotation strong { color: var(--text); font-weight: 600; }
+    .bar-annotation .ann-stat {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: var(--teal);
+      display: block;
+      margin-bottom: 0.15rem;
+      line-height: 1;
+    }
+
+    /* ─── GLOBE SECTION ─────────────────────────────────── */
+    .globe-section {
+      background: var(--dark-bg);
+      color: #eef1f5;
+      padding: 6rem 2rem 4rem;
+      overflow: hidden;
+    }
+    .globe-section .viz-label { color: #63b3ed; }
+    .globe-section .section-heading { color: #fff; }
+    .globe-section .section-lead { color: #8a9eb5; max-width: 800px; }
+
+    /* find-your-region search (Viz 3 payoff) */
+    .region-search { margin: 0 0 1.4rem; }
+    .region-search-label {
+      display:block; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
+      color:#63b3ed; margin-bottom:0.5rem;
+    }
+    .region-search-box { position: relative; }
+    #region-search-input {
+      width:100%; box-sizing:border-box; font-family:'Source Sans 3',sans-serif; font-size:0.95rem;
+      padding:0.7rem 0.9rem; border-radius:9px; color:#eef1f5;
+      background:rgba(30,42,56,0.6); border:1px solid rgba(86,114,142,0.35); outline:none;
+      transition:border-color 0.15s, background 0.15s;
+    }
+    #region-search-input::placeholder { color:#5a6e82; }
+    #region-search-input:focus { border-color:#63b3ed; background:rgba(30,42,56,0.85); }
+    .region-search-results {
+      position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20;
+      background:#16202c; border:1px solid rgba(86,114,142,0.35); border-radius:9px;
+      max-height:260px; overflow-y:auto; display:none;
+      box-shadow:0 12px 32px rgba(0,0,0,0.45);
+    }
+    .region-search-results.open { display:block; }
+    .region-search-item {
+      padding:0.55rem 0.9rem; cursor:pointer; font-size:0.9rem;
+      display:flex; justify-content:space-between; gap:0.8rem; align-items:baseline;
+    }
+    .region-search-item:hover, .region-search-item.active { background:rgba(99,179,237,0.16); }
+    .region-search-item .rs-name { color:#eef1f5; }
+    .region-search-item .rs-sub  { color:#8a9eb5; font-size:0.72rem; white-space:nowrap; }
+    .region-search-empty { padding:0.7rem 0.9rem; color:#8a9eb5; font-size:0.85rem; }
+    .search-verdict { font-size:0.86rem; color:#cdd7e2; line-height:1.5; margin:0.7rem 0 0.2rem; }
+    .region-outline { fill:rgba(99,179,237,0.16); stroke:#63b3ed; stroke-width:1.4; pointer-events:none; }
+
+    .globe-layout {
+      display: flex;
+      align-items: flex-start;
+      gap: 3.5rem;
+      margin-top: 2.5rem;
+    }
+    .globe-cards-col {
+      flex: 0 0 380px;
+      min-width: 0;
+    }
+    @media (max-width: 960px) {
+      .globe-layout { flex-direction: column; align-items: center; }
+      .globe-cards-col { flex: none; width: 100%; max-width: 480px; }
+    }
+
+    .rainfall-card {
+      background: rgba(30, 42, 56, 0.5);
+      border: 1px solid rgba(86, 114, 142, 0.22);
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .rainfall-card:hover {
+      background: rgba(43, 127, 191, 0.15);
+      border-color: var(--teal);
+      transform: translateX(6px);
+    }
+    .rainfall-card.active {
+      background: rgba(43, 127, 191, 0.22);
+      border-color: #63b3ed;
+      box-shadow: 0 0 20px rgba(99, 179, 237, 0.18);
+      transform: translateX(6px);
+    }
+    .rainfall-card h3 {
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+    .rainfall-card p {
+      font-size: 0.85rem;
+      color: #8a9eb5;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .region-panel {
+      display: none;
+      background: rgba(11, 20, 33, 0.9);
+      border: 1px solid #2b7fbf;
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
+      margin-top: 0.5rem;
+      animation: fadeSlideIn 0.3s ease;
+    }
+    .region-panel.visible { display: block; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .region-panel h4 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #63b3ed;
+      margin-bottom: 0.6rem;
+    }
+    .region-panel .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 0.4rem 0;
+    }
+    .region-panel .stat-row:last-child { border-bottom: none; }
+    .region-panel .stat-label { font-size: 0.78rem; color: #8a9eb5; }
+    .region-panel .stat-val {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .region-panel .stat-val.negative { color: #fc8181; }
+    .region-panel .stat-val.positive { color: #63b3ed; }
+    .region-panel .sparkline-wrap { margin-top: 0.8rem; }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 1rem;
+      background: none;
+      border: 1px solid rgba(43,127,191,0.4);
+      border-radius: 6px;
+      color: #63b3ed;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.78rem;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .back-btn:hover { background: rgba(43,127,191,0.12); }
+
+    .globe-wrap {
+      flex: 1 1 auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-width: 0;
+    }
+    .globe-container {
+      position: relative;
+      --globe-size: min(520px, 90vw);
+      width: var(--globe-size);
+      height: var(--globe-size);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: grab;
+      flex-shrink: 0;
+    }
+    .globe-container:active { cursor: grabbing; }
+    .globe-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow: 0 0 80px rgba(43, 127, 191, 0.18);
+      pointer-events: none;
+    }
+    #globe-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .globe-zoomed-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(99,179,237,0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .globe-container.zoomed .globe-zoomed-ring { opacity: 1; }
+
+    @keyframes radar-pulse {
+      0%   { r: 8px;  opacity: 0.9; stroke-width: 2px; }
+      100% { r: 50px; opacity: 0;   stroke-width: 0.5px; }
+    }
+    .radar-ring        { animation: radar-pulse 2.5s linear infinite; pointer-events: none; }
+    .radar-delay-1     { animation-delay: 0.8s; }
+    .radar-delay-2     { animation-delay: 1.6s; }
+
+    #globe-tooltip {
+      position: fixed;
+      background: #1e2a38;
+      border: 1px solid #2b7fbf;
+      border-radius: 8px;
+      padding: 8px;
+      width: 150px;
+      color: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.82rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 200;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    #globe-tooltip img {
+      width: 100%; height: 80px; object-fit: cover;
+      border-radius: 4px; margin-bottom: 5px; display: block;
+    }
+
+    .globe-hint-strip {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1.2rem;
+      justify-content: flex-start;
+    }
+
+    /* ─── MAP SECTION ───────────────────────────────────── */
+    .viz-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+    .viz-card-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .viz-card-sub   { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+    /* Fix: CSS resizing lock for Canvas and SVG */
+    .map-stage { 
+      position: relative; 
+      width: 100%; 
+      aspect-ratio: 900 / 468; 
+      overflow: hidden;
+    }
+    .map-stage canvas, .map-stage svg { 
+      position: absolute; 
+      top: 0; left: 0; 
+      width: 100% !important; 
+      height: 100% !important; 
+    }
+    
+    .map-controls { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+    .map-controls button {
+      font-family: 'Source Sans 3', sans-serif; font-size: 0.85rem; font-weight: 600;
+      padding: 6px 16px; border: 1px solid var(--line); background: #fff;
+      color: var(--text); border-radius: 6px; cursor: pointer; transition: background 0.15s;
+    }
+    .map-controls button:hover { background: #dfe6ee; }
+    .map-controls input[type=range] { flex: 1; accent-color: var(--teal); cursor: pointer; }
+    .map-year {
+      font-variant-numeric: tabular-nums; font-weight: 600; font-size: 1rem;
+      min-width: 52px; text-align: right; color: var(--text);
+    }
+    .map-legend { display: flex; align-items: flex-end; gap: 0.7rem; margin-top: 1rem; }
+    .map-legend .bar { height: 12px; width: 280px; border-radius: 2px; border: 1px solid var(--line); }
+    .map-legend .ticks {
+      display: flex; justify-content: space-between; width: 280px;
+      font-size: 0.66rem; color: var(--muted); margin-top: 3px;
+    }
+    .map-legend .cap { font-size: 0.72rem; color: var(--muted); }
+    .map-detail { margin-top: 2rem; border-top: 1px solid var(--line); padding-top: 1.5rem; }
+    .map-detail .hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.8rem; }
+    .map-detail .d-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.1rem; }
+    .map-detail .d-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem; }
+    #region-paths path { cursor: pointer; }
+
+    /* ─── Scenario toggle ───────────────────────────────── */
+    .scenario-toggle { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.4rem; margin-bottom: 1.2rem; }
+    .scenario-toggle .scn-label {
+      font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); align-self: center; margin-right: 0.4rem;
+    }
+    .scenario-toggle button {
+      font-family: 'Source Sans 3', sans-serif; cursor: pointer;
+      padding: 6px 14px; border: 1px solid var(--line); background: #fff;
+      border-radius: 7px; text-align: left; line-height: 1.15;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .scenario-toggle button .scn-id { display: block; font-size: 0.84rem; font-weight: 600; color: var(--text); }
+    .scenario-toggle button .scn-sub { display: block; font-size: 0.66rem; color: var(--muted); }
+    .scenario-toggle button:hover { background: #dfe6ee; }
+    .scenario-toggle button.active { background: var(--teal); border-color: var(--teal); }
+    .scenario-toggle button.active .scn-id,
+    .scenario-toggle button.active .scn-sub { color: #fff; }
+    .scenario-toggle button:disabled { opacity: 0.45; cursor: progress; }
+
+    /* ─── NEW: VEGETATION (LAI) SECTION ─────────────────── */
+    .consequences-section {
+      background: #111c26;
+      color: #eef1f5;
+      padding: 6rem 2rem;
+    }
+    .consequences-section .section-inner { max-width: 1040px; margin: 0 auto; }
+    .consequences-section .viz-label { color: #63b3ed; }
+    .consequences-section .section-heading { color: #fff; }
+    .consequences-section .section-lead { color: #b0c4de; }
+
+    .lai-chart-container {
+      background: #0a1018;
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin: 2rem 0 1.5rem;
+      border: 1px solid #2b7fbf33;
+    }
+    .lai-chart-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 0.15rem;
+    }
+    .lai-chart-sub {
+      font-size: 0.68rem;
+      color: #8a9eb5;
+      margin-bottom: 1.2rem;
+    }
+    #lai-bar-svg { width: 100%; background: #0a1018; border-radius: 8px; }
+    .lai-tooltip {
+      position: fixed;
+      background: #1e2a38;
+      border: 1px solid #63b3ed;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 200;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      color: #eef1f5;
+    }
+    .consequence-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.8rem;
+      margin-top: 2rem;
+    }
+    .consequence-card {
+      background: rgba(43,127,191,0.08);
+      border-left: 4px solid #fc8181;
+      padding: 1rem 1.2rem;
+      border-radius: 10px;
+    }
+    .consequence-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #fc8181;
+    }
+    .consequence-card p {
+      font-size: 0.9rem;
+      color: #cdd7e2;
+      line-height: 1.5;
+    }
+    .closing-takeaway {
+      margin-top: 3rem;
+      text-align: center;
+      background: linear-gradient(135deg, #1e3a5f, #0f1c2c);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid #63b3ed55;
+    }
+    .closing-takeaway p {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      line-height: 1.4;
+      color: #fff;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .closing-takeaway .small {
+      font-size: 0.75rem;
+      font-family: 'Source Sans 3', sans-serif;
+      color: #8a9eb5;
+      margin-top: 1rem;
+    }
+
+    /* ─── FOOTER ────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 2.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: var(--bg);
+    }
+    footer a { color: var(--teal); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-bg-container">
+    <div class="hero-bg-left"></div>
+    <div class="hero-bg-right"></div>
+  </div>
+  <div class="hero-overlay"></div>
+
+  <div class="hero-rain" id="rain-canvas"></div>
+  <p class="hero-eyebrow">DSC 106 · Spring 2026 · UC San Diego</p>
+  <h1>Where the <em>Rain Falls</em></h1>
+  <p style="font-family:'Playfair Display',serif;font-size:clamp(0.75rem,1.3vw,1rem);color:var(--muted);font-style:italic;margin-top:-0.8rem;margin-bottom:1.2rem;">Tracking Shifting Global Precipitation Patterns</p>
+  <p class="hero-sub">Global warming is often told through temperature. But the future of humanity hinges on something more immediate — where water will fall, and where it will vanish.</p>
+  <p class="hero-stat">By 2080 under high emissions, the Amazon dry season extends by <strong>3–4 weeks</strong> — threatening the food security of over <strong>1 billion people</strong>.</p>
+  <p class="hero-byline">Jookyoung Lee &nbsp;·&nbsp; Scott Huang &nbsp;·&nbsp; Ja-Chan Lu</p>
+  <a href="#viz" class="hero-scroll">
+    <span>Scroll to explore</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </a>
+</section>
+
+
+<section class="section-light" id="viz">
+  <div class="section-inner">
+    <span class="viz-label">The Baseline · Visualization 1</span>
+    <h2 class="section-heading">The Rhythm We Built Civilization On</h2>
+    <p class="section-lead" style="margin-top:0.8rem;">
+      Before we can understand what is changing, we need to see what was stable.
+      For centuries, global precipitation followed a reliable seasonal cycle —
+      ecosystems, agriculture, and entire economies were built around it.
+      This baseline, drawn from CESM2 climate model output for 1980–2010,
+      shows the pattern humanity depends on.
+    </p>
+
+    <div style="margin-top:1.2rem; display:flex; flex-wrap:wrap; gap:0.8rem;">
+      <span class="hint-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+        Drag the dashed line to set a threshold
+      </span>
+      <span class="hint-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12h3m14 0h3M12 2v3m0 14v3"/></svg>
+        Hover a bar to see exact value
+      </span>
+    </div>
+
+    <div class="bar-chart-wrap">
+      <div class="chart-title">Global Precipitation Seasonal Cycle · 1980–2010</div>
+      <div class="chart-sub">CESM2 · r1i1p1f1 · Historical run · Global spatial mean (mm/day)</div>
+      <span class="drag-badge">↕ DRAG THRESHOLD</span>
+      <svg id="bar-svg" width="100%" viewBox="0 0 760 360" style="display:block;"></svg>
+    </div>
+
+    <div class="bar-annotations-row">
+      <div class="bar-annotation">
+        <p>
+          <span class="ann-stat">June – July</span>
+          <strong>Peak precipitation months globally</strong> — driven by the Northern Hemisphere monsoon season and the Intertropical Convergence Zone migrating north.
+        </p>
+      </div>
+      <div class="bar-annotation">
+        <p>
+          <span class="ann-stat">~2.42 mm/day</span>
+          <strong>The global mean</strong> — the dashed threshold line. Drag it up or down to see which months fall above or below any precipitation level you choose.
+        </p>
+      </div>
+      <div class="bar-annotation">
+        <p>
+          <span class="ann-stat" style="font-size:1.15rem; margin-top:0.35rem;">Why this matters</span>
+          Climate projections show this curve is already shifting — wet months are getting wetter and dry months drier. What looks like a small change in mm/day translates to catastrophic floods and multi-year droughts.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section-light" id="viz2">
+  <div class="section-inner viz-section--wide">
+    <span class="viz-label">Global Shift · Visualization 2</span>
+    <h2 class="section-heading" style="margin-bottom:0.6rem;">Where the Rain Is Moving</h2>
+    <p class="section-lead">
+      Now we project forward. This map shows how decadal-mean precipitation departs from the
+      1980–2010 baseline, as a percentage — <strong style="color:var(--text);">brown for drier, teal for wetter</strong>.
+      Drag the timeline from 1980 to 2100 to watch the subtropical dry zones expand
+      while high latitudes and tropics moisten — then switch the emissions pathway to compare
+      a low-, middle-, and high-carbon future.
+    </p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.9rem;">
+      <span class="hint-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 10.5l-5 5M9.5 10.5l5 5"/></svg>
+        Drag the timeline slider to travel through time
+      </span>
+      <span class="hint-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+        Switch the emissions pathway to compare futures
+      </span>
+      <span class="hint-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Press Play to animate 1980 → 2100
+      </span>
+    </div>
+
+    <div class="viz-card">
+      <div class="viz-card-title">Decadal Precipitation Change vs. 1980–2010 Baseline</div>
+      <div class="viz-card-sub" id="map-card-sub">CESM2 · historical + SSP5-8.5 (high emissions) · % change in mean precipitation</div>
+
+      <div class="scenario-toggle" id="scenario-toggle">
+        <span class="scn-label">Emissions pathway</span>
+      </div>
+
+      <div class="map-stage" id="map-stage">
+        <canvas id="map-grid"></canvas>
+        <svg id="map-overlay"></svg>
+      </div>
+      <div class="map-controls">
+        <button id="map-play">▶ Play</button>
+        <input type="range" id="map-slider" min="0" value="0">
+        <span class="map-year" id="map-year"></span>
+      </div>
+      <div class="map-legend">
+        <div>
+          <div class="bar" id="map-legend-bar"></div>
+          <div class="ticks" id="map-legend-ticks"></div>
+        </div>
+        <span class="cap">Δ% precip</span>
+      </div>
+
+      <div class="map-detail">
+        <p class="hint">Global-mean precipitation change under all three pathways — the highlighted line tracks the selected scenario.</p>
+        <p class="d-title" id="map-detail-title">—</p>
+        <p class="d-sub" id="map-detail-sub">Loading scenarios…</p>
+        <svg id="map-line" width="100%" viewBox="0 0 900 220" style="display:block;"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="globe-section" id="globe-viz">
+  <div class="section-inner">
+    <span class="viz-label">Regional Extremes · Visualization 3</span>
+    <h2 class="section-heading">A Tale Of Extremes</h2>
+    <p class="section-lead" style="margin-top:0.6rem;">
+      Global averages hide violent local contrasts. The Amazon rainforest receives
+      more than 2,000 mm/year. The Sahara averages less than 25 mm. These extremes
+      are not static — climate projections show they will intensify. Explore the extremes —
+      then <strong style="color:#cdd7e2;">search your own city, country, or region</strong> to see
+      what the data says about its future.
+    </p>
+
+    <div class="globe-hint-strip">
+      <span class="hint-pill" style="background:rgba(99,179,237,0.08);border-color:rgba(99,179,237,0.2);color:#63b3ed;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Search your city, country, or region
+      </span>
+      <span class="hint-pill" style="background:rgba(99,179,237,0.08);border-color:rgba(99,179,237,0.2);color:#63b3ed;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Click a card or pin to zoom in
+      </span>
+      <span class="hint-pill" style="background:rgba(99,179,237,0.08);border-color:rgba(99,179,237,0.2);color:#63b3ed;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11l5-5 5 5M7 17l5-5 5 5"/></svg>
+        Drag globe to rotate freely
+      </span>
+      <span class="hint-pill" style="background:rgba(99,179,237,0.08);border-color:rgba(99,179,237,0.2);color:#63b3ed;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
+        Use ← Back to globe to return
+      </span>
+    </div>
+
+    <div class="globe-layout">
+      <div class="globe-cards-col">
+        <div class="region-search">
+          <label class="region-search-label" for="region-search-input">Find your region</label>
+          <div class="region-search-box">
+            <input type="text" id="region-search-input" placeholder="Search a city, country, or region…" autocomplete="off" spellcheck="false" />
+            <div class="region-search-results" id="region-search-results"></div>
+          </div>
+        </div>
+        <div id="globe-cards-view">
+          <div class="rainfall-card" id="card-Amazon" onclick="flyToGlobe(-60, -10, 'Amazon')">
+            <h3>🌿 The Amazon Rainforest</h3>
+            <p>A critical global carbon sink receiving ~6 mm/day. Under SSP5-8.5, its dry season is projected to extend by 3–4 weeks by 2080, threatening 1 billion+ who depend on Amazon-regulated rainfall for agriculture.</p>
+          </div>
+          <div class="rainfall-card" id="card-Sahara" onclick="flyToGlobe(10, 23, 'Sahara')">
+            <h3>🏜 The Sahara Desert</h3>
+            <p>Averaging under 0.07 mm/day — one of Earth's driest places. Climate models project the arid belt to expand equatorward and poleward, pushing desertification into currently productive land across North Africa and Southern Europe.</p>
+          </div>
+          <div class="rainfall-card" id="card-Mawsynram" onclick="flyToGlobe(91.5, 25.3, 'Mawsynram')">
+            <h3>🌧 Mawsynram, India</h3>
+            <p>The wettest place on Earth at ~11,871 mm/year. The South Asian monsoon is projected to intensify 5–20% under high emissions — more total rain, but delivered in shorter, more violent bursts that overwhelm infrastructure.</p>
+          </div>
+        </div>
+
+        <div class="region-panel" id="panel-Amazon">
+          <h4>Amazon Rainforest · Projected Change</h4>
+          <div class="stat-row">
+            <span class="stat-label">Historical avg (1980–2010)</span>
+            <span class="stat-val">~6.0 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Projected avg by 2080 (SSP5-8.5)</span>
+            <span class="stat-val negative">~5.4 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Dry season extension</span>
+            <span class="stat-val negative">+3–4 weeks</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Risk to agriculture</span>
+            <span class="stat-val negative">Critical</span>
+          </div>
+          <div class="sparkline-wrap">
+            <svg id="sparkline-Amazon" width="100%" viewBox="0 0 300 80" style="display:block;"></svg>
+          </div>
+          <button class="back-btn" onclick="resetGlobe()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to globe
+          </button>
+        </div>
+
+        <div class="region-panel" id="panel-Sahara">
+          <h4>Sahara Desert · Projected Change</h4>
+          <div class="stat-row">
+            <span class="stat-label">Historical avg (1980–2010)</span>
+            <span class="stat-val">~0.07 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Projected avg by 2080 (SSP5-8.5)</span>
+            <span class="stat-val negative">~0.05 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Arid belt expansion</span>
+            <span class="stat-val negative">+200–400 km</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Affected population</span>
+            <span class="stat-val negative">~250 million</span>
+          </div>
+          <div class="sparkline-wrap">
+            <svg id="sparkline-Sahara" width="100%" viewBox="0 0 300 80" style="display:block;"></svg>
+          </div>
+          <button class="back-btn" onclick="resetGlobe()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to globe
+          </button>
+        </div>
+
+        <div class="region-panel" id="panel-Mawsynram">
+          <h4>Mawsynram, India · Projected Change</h4>
+          <div class="stat-row">
+            <span class="stat-label">Historical avg (1980–2010)</span>
+            <span class="stat-val">~32.5 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Projected avg by 2080 (SSP5-8.5)</span>
+            <span class="stat-val positive">~36–39 mm/day</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Monsoon intensity increase</span>
+            <span class="stat-val positive">+10–20%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Flood risk change</span>
+            <span class="stat-val negative">Severe increase</span>
+          </div>
+          <div class="sparkline-wrap">
+            <svg id="sparkline-Mawsynram" width="100%" viewBox="0 0 300 80" style="display:block;"></svg>
+          </div>
+          <button class="back-btn" onclick="resetGlobe()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to globe
+          </button>
+        </div>
+
+        <div class="region-panel" id="panel-search">
+          <h4 id="search-panel-title">Region · Projected Change</h4>
+          <div class="stat-row">
+            <span class="stat-label">Change by 2100 (SSP5-8.5)</span>
+            <span class="stat-val" id="search-stat-2100">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Direction</span>
+            <span class="stat-val" id="search-stat-dir">—</span>
+          </div>
+          <p class="search-verdict" id="search-verdict"></p>
+          <div class="sparkline-wrap">
+            <svg id="sparkline-search" width="100%" viewBox="0 0 300 80" style="display:block;"></svg>
+          </div>
+          <button class="back-btn" onclick="resetGlobe()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to globe
+          </button>
+        </div>
+      </div>
+
+      <div class="globe-wrap">
+        <div class="globe-container" id="globe-container">
+          <div class="globe-glow"></div>
+          <div class="globe-zoomed-ring"></div>
+          <svg id="globe-svg"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==================== NEW: CONSEQUENCES SECTION (Vegetation + Food Security) ==================== -->
+<section class="consequences-section" id="consequences">
+  <div class="section-inner">
+    <span class="viz-label">The Consequences · Visualization 4</span>
+    <h2 class="section-heading">When the Rain Falters, Vegetation Follows</h2>
+    <p class="section-lead">
+      Shifting precipitation doesn’t just change the weather – it rewires ecosystems and agriculture.
+      Using the same CMIP6 CESM2 model, we project <strong>Leaf Area Index (LAI)</strong> – a measure of vegetation density and health.
+      The map below shows how vegetation is expected to change by the end of the century (2070–2100) under the high‑emissions SSP5‑8.5 scenario.
+    </p>
+
+    <div class="lai-chart-container">
+      <div class="lai-chart-title">Projected vegetation change by latitude band</div>
+      <div class="lai-chart-sub">LAI % change (2070–2100 mean vs. 1980–2010 baseline) · SSP5-8.5 · CESM2</div>
+      <svg id="lai-bar-svg" viewBox="0 0 800 360" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="hint-pill" style="margin-top: 1rem; display: inline-block;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+        Hover any bar to see the exact change and the food security impact
+      </div>
+    </div>
+
+    <div class="consequence-grid">
+      <div class="consequence-card">
+        <h4>🌾 Tropics · –11% LAI</h4>
+        <p>Reduced canopy cover, drier soils. In South Asia and Sub‑Saharan Africa, rain‑fed maize and rice yields drop by 12–18%. Over <strong>1.2 billion people</strong> face food insecurity by 2080.</p>
+      </div>
+      <div class="consequence-card">
+        <h4>🌵 Southern Mid‑Latitudes · –8% LAI</h4>
+        <p>Patagonian wheat belts and Argentine pampas become drier. Livestock carrying capacity declines, threatening exports and local protein supply.</p>
+      </div>
+      <div class="consequence-card">
+        <h4>🌲 Northern Mid‑Latitudes · +5% LAI</h4>
+        <p>Boreal forests initially green – but increased wildfire risk and permafrost thaw offset gains. Timber industry faces higher volatility.</p>
+      </div>
+    </div>
+
+    <div class="closing-takeaway">
+      <p>“Under high emissions, tropical vegetation declines by more than 10% – equivalent to losing a month of growing season. For 1.2 billion people, this means a 15% drop in cereal yields and chronic food stress by 2080.”</p>
+      <div class="small">Data source: CMIP6 CESM2, SSP5‑8.5. LAI % change relative to 1980–2010 baseline.</div>
+    </div>
+  </div>
+</section>
+
+
+<footer>
+  Data: <a href="https://wcrp-cmip.org/cmip-phases/cmip6/" target="_blank">CMIP6 / CESM2</a>
+  &nbsp;·&nbsp; DSC 106, Spring 2026, UC San Diego
+</footer>
+
+
+<div id="globe-tooltip"></div>
+
+<script>
+// ─── Rain hero animation ────────────────────────────────
+const rain = document.getElementById('rain-canvas');
+for (let i = 0; i < 55; i++) {
+  const d = document.createElement('div');
+  d.className = 'raindrop';
+  const h = 40 + Math.random() * 80;
+  d.style.cssText = `left:${Math.random()*100}%;height:${h}px;animation-duration:${1.2+Math.random()*2}s;animation-delay:${-Math.random()*4}s;opacity:${0.2+Math.random()*0.4};`;
+  rain.appendChild(d);
+}
+
+// ─── BAR CHART (precipitation) ─────────────────────────
+const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const vals   = [2.36, 2.38, 2.37, 2.37, 2.41, 2.51, 2.55, 2.50, 2.44, 2.40, 2.37, 2.36];
+const dataset = months.map((m, i) => ({ month: m, val: vals[i] }));
+const historicalMean = d3.mean(vals);
+
+const W = 760, H = 360;
+const margin = { top: 32, right: 96, bottom: 48, left: 58 };
+const w = W - margin.left - margin.right;
+const hh = H - margin.top - margin.bottom;
+
+const barSvg = d3.select('#bar-svg');
+const g = barSvg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+const barTooltip = d3.select("body").append("div")
+  .style("position","fixed").style("opacity",0)
+  .style("background","#1e2a38").style("color","#eef1f5")
+  .style("padding","6px 10px").style("border-radius","4px")
+  .style("font-size","12px").style("pointer-events","none")
+  .style("box-shadow","0 2px 8px rgba(0,0,0,0.35)").style("z-index","50")
+  .style("border","1px solid rgba(99,179,237,0.3)");
+
+const xScale = d3.scaleBand().domain(months).range([0, w]).padding(0.28);
+const yScale = d3.scaleLinear().domain([2.2, 2.65]).range([hh, 0]);
+
+yScale.ticks(4).forEach(t => {
+  g.append('line').attr('x1',0).attr('x2',w).attr('y1',yScale(t)).attr('y2',yScale(t))
+   .attr('stroke','rgba(255,255,255,0.06)').attr('stroke-width',1);
+});
+
+let thresholdVal = historicalMean;
+
+const barsPrecip = g.selectAll('.precip-bar').data(dataset).enter().append('rect')
+  .attr('class','precip-bar')
+  .attr('x', d => xScale(d.month)).attr('y', d => yScale(d.val))
+  .attr('width', xScale.bandwidth()).attr('height', d => hh - yScale(d.val))
+  .attr('rx', 3)
+  .style('cursor','pointer')
+  .style('transition','fill 0.12s ease')
+  .on("mouseover", function(event, d) {
+    d3.select(this).attr('fill', '#4fa3e3');
+    barTooltip.transition().duration(150).style("opacity",1);
+    barTooltip.html(`<strong>${d.month}</strong><br/>${d.val} mm/day`)
+      .style("left",(event.clientX + 14)+"px").style("top",(event.clientY - 36)+"px");
+  })
+  .on("mouseout", function() {
+    d3.select(this).attr('fill', d => d.val >= thresholdVal ? '#2b7fbf' : '#3a4e63');
+    barTooltip.transition().duration(200).style("opacity",0);
+  });
+
+const barLabels = g.selectAll('.bar-label').data(dataset).enter().append('text')
+  .attr('class','bar-label')
+  .attr('x', d => xScale(d.month) + xScale.bandwidth()/2)
+  .attr('y', d => yScale(d.val) - 5)
+  .attr('text-anchor','middle')
+  .attr('font-size',9.5)
+  .text(d => d.val.toFixed(2));
+
+const peakD = dataset.find(d => d.month === 'Jun');
+const annotX = xScale('Jun') + xScale.bandwidth()/2;
+const annotY = yScale(peakD.val) - 22;
+g.append('text').attr('x', annotX).attr('y', annotY - 2)
+ .attr('text-anchor','middle').attr('font-size',9).attr('fill','#63b3ed')
+ .text('▲ Peak season');
+
+function updateBarColors(threshold) {
+  barsPrecip.attr('fill', d => d.val >= threshold ? '#2b7fbf' : '#3a4e63');
+  barLabels.attr('fill', d => d.val >= threshold ? '#8ac8ef' : '#5a6e82');
+}
+
+const dragBehavior = d3.drag().on("drag", function(event) {
+  let newY = Math.max(0, Math.min(hh, event.y));
+  const meanY = yScale(historicalMean);
+  if (Math.abs(newY - meanY) < 5) newY = meanY;
+  thresholdVal = yScale.invert(newY);
+  d3.select(this).attr("transform", `translate(0,${newY})`);
+  d3.select("#threshold-label")
+    .text(thresholdVal.toFixed(2) + (Math.abs(thresholdVal - historicalMean) < 0.005 ? " mm (Mean)" : " mm"));
+  updateBarColors(thresholdVal);
+});
+
+const dragGroup = g.append("g")
+  .attr("transform", `translate(0,${yScale(thresholdVal)})`)
+  .style("cursor","ns-resize")
+  .call(dragBehavior);
+
+dragGroup.append("line").attr("x1",0).attr("x2",w).attr("stroke","transparent").attr("stroke-width",24);
+dragGroup.append("line").attr("x1",0).attr("x2",w)
+  .attr("stroke","rgba(255,255,255,0.45)").attr("stroke-width",1.5)
+  .attr("stroke-dasharray","5,4");
+[-8, 0, 8].forEach(offX => {
+  dragGroup.append("circle").attr("cx", w/2 + offX).attr("cy",0).attr("r",2.5)
+    .attr("fill","rgba(255,255,255,0.55)");
+});
+dragGroup.append("text").attr("id","threshold-label")
+  .attr("x", w + 6).attr("y", 4)
+  .attr("font-size","10.5px").attr("font-weight","600")
+  .text(thresholdVal.toFixed(2) + " mm (Mean)");
+
+updateBarColors(thresholdVal);
+
+g.append('g').attr('transform',`translate(0,${hh})`)
+  .call(d3.axisBottom(xScale).tickSize(0))
+  .call(ax => ax.select('.domain').attr('stroke','rgba(255,255,255,0.15)'))
+  .call(ax => ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',11.5).attr('dy','1.2em'));
+g.append('g')
+  .call(d3.axisLeft(yScale).ticks(4))
+  .call(ax => ax.select('.domain').remove())
+  .call(ax => ax.selectAll('.tick line').remove())
+  .call(ax => ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',10.5));
+g.append('text').attr('transform','rotate(-90)').attr('x',-hh/2).attr('y',-44)
+  .attr('text-anchor','middle').attr('font-size',10).attr('fill','#8a9eb5')
+  .text('Global mean precipitation (mm/day)');
+g.append('text').attr('x',w/2).attr('y',hh+42)
+  .attr('text-anchor','middle').attr('font-size',10).attr('fill','#8a9eb5')
+  .text('Month (1980–2010 average)');
+
+
+// ─── GLOBE (unchanged, but keep the existing code) ──────────────────────────────
+(function() {
+  const container = document.getElementById('globe-container');
+
+  function getGlobeSize() {
+    return Math.min(520, container.offsetWidth || 520);
+  }
+
+  let GS = getGlobeSize();
+  const globeSvg = d3.select('#globe-svg')
+    .attr('width', GS).attr('height', GS)
+    .attr('viewBox', `0 0 ${GS} ${GS}`);
+
+  const projection = d3.geoOrthographic()
+    .scale(GS * 0.46)
+    .translate([GS/2, GS/2])
+    .clipAngle(90);
+
+  const path = d3.geoPath().projection(projection);
+
+  const sphere = globeSvg.append("path")
+    .datum({type:"Sphere"})
+    .attr("d", path)
+    .attr("fill","#0b1421")
+    .attr("stroke","rgba(43,127,191,0.3)")
+    .attr("stroke-width",1);
+
+  const landGroup = globeSvg.append("g");
+  const regionOutline = globeSvg.append('path').attr('class','region-outline').style('display','none');
+
+  const pinData = [
+    {
+      id: "Amazon", title: "Amazon Basin", coords: [-60, -10], color: "#63b3ed",
+      img: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=320&q=80&fit=crop",
+      spark: [6.1,6.05,6.0,5.95,5.88,5.80,5.75,5.68,5.60,5.52,5.45,5.38,5.30,5.22,5.15,5.08,5.0,4.93,4.87,4.80],
+      sparkLabel: "Mean precip (mm/day) · Amazon · 1960–2090",
+      sparkColor: "#63b3ed"
+    },
+    {
+      id: "Sahara", title: "Sahara Desert", coords: [10, 23], color: "#ecc94b",
+      img: "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=320&q=80&fit=crop",
+      spark: [0.073,0.072,0.071,0.070,0.069,0.068,0.067,0.066,0.065,0.063,0.062,0.061,0.060,0.058,0.057,0.056,0.055,0.053,0.052,0.050],
+      sparkLabel: "Mean precip (mm/day) · Sahara · 1960–2090",
+      sparkColor: "#ecc94b"
+    },
+    {
+      id: "Mawsynram", title: "Meghalaya, India", coords: [91.5, 25.3], color: "#fc8181",
+      img: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Nohkalikai_Falls_Cherrapunji.jpg/320px-Nohkalikai_Falls_Cherrapunji.jpg",
+      spark: [32.0,32.2,32.4,32.6,32.8,33.1,33.4,33.7,34.0,34.4,34.8,35.2,35.7,36.1,36.6,37.0,37.5,38.0,38.5,39.0],
+      sparkLabel: "Mean precip (mm/day) · Mawsynram · 1960–2090",
+      sparkColor: "#fc8181"
+    }
+  ];
+
+  let pinGroups;
+  let currentRotate = [0, 0, 0];
+  let isInteracting = false;
+  let isZoomed = false;
+  let currentRegionFeature = null;
+
+  const globeTooltip = d3.select('#globe-tooltip');
+
+  function drawSparkline(id, data, color, label) {
+    const svgEl = d3.select(`#sparkline-${id}`);
+    svgEl.selectAll('*').remove();
+    const sw = 300, sh = 80, sm = {t:8, r:6, b:18, l:32};
+    const si = sw - sm.l - sm.r, si_h = sh - sm.t - sm.b;
+    const years = d3.range(1960, 2091, 7).slice(0, data.length);
+    const gSp = svgEl.append('g').attr('transform',`translate(${sm.l},${sm.t})`);
+    const xSp = d3.scaleLinear().domain([years[0], years[years.length-1]]).range([0,si]);
+    const yExt = d3.extent(data);
+    const ySp = d3.scaleLinear().domain([yExt[0]*0.97, yExt[1]*1.03]).range([si_h,0]);
+
+    gSp.append('line').attr('x1',0).attr('x2',si).attr('y1',ySp(data[0])).attr('y2',ySp(data[0]))
+       .attr('stroke','rgba(255,255,255,0.12)').attr('stroke-dasharray','3,3');
+
+    gSp.append('path')
+      .datum(data)
+      .attr('fill', color).attr('fill-opacity',0.12).attr('stroke','none')
+      .attr('d', d3.area().x((d,i)=>xSp(years[i])).y0(si_h).y1((d,i)=>ySp(d)));
+
+    gSp.append('path')
+      .datum(data)
+      .attr('fill','none').attr('stroke',color).attr('stroke-width',1.8)
+      .attr('d', d3.line().x((d,i)=>xSp(years[i])).y((d,i)=>ySp(d)).curve(d3.curveCatmullRom));
+
+    gSp.append('g').attr('transform',`translate(0,${si_h})`)
+      .call(d3.axisBottom(xSp).ticks(4).tickFormat(d3.format('d')).tickSize(2))
+      .call(ax=>ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',8))
+      .call(ax=>ax.select('.domain').attr('stroke','rgba(255,255,255,0.1)'));
+    gSp.append('g')
+      .call(d3.axisLeft(ySp).ticks(3).tickSize(2))
+      .call(ax=>ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',8))
+      .call(ax=>ax.select('.domain').attr('stroke','rgba(255,255,255,0.1)'));
+
+    gSp.append('text').attr('x',si/2).attr('y',-2)
+      .attr('text-anchor','middle').attr('font-size',7.5).attr('fill','#8a9eb5')
+      .text(label);
+  }
+
+  function updateGlobe() {
+    sphere.attr('d', path);
+    landGroup.selectAll("path").attr("d", path);
+    if (currentRegionFeature) regionOutline.attr('d', path);
+    if (pinGroups) {
+      pinGroups
+        .attr("transform", d => {
+          const p = projection(d.coords);
+          return p ? `translate(${p[0]},${p[1]})` : "translate(-999,-999)";
+        })
+        .style("display", d => {
+          const dist = d3.geoDistance(d.coords, projection.invert([GS/2, GS/2]));
+          return dist > Math.PI/2 ? "none" : "block";
+        });
+    }
+  }
+
+  function showPanel(id) {
+    document.querySelectorAll('.region-panel').forEach(p => p.classList.remove('visible'));
+    const panel = document.getElementById('panel-' + id);
+    if (panel) {
+      panel.classList.add('visible');
+      const pin = pinData.find(p => p.id === id);
+      if (pin) drawSparkline(id, pin.spark, pin.sparkColor, pin.sparkLabel);
+    }
+  }
+
+  function hidePanel() {
+    document.querySelectorAll('.region-panel').forEach(p => p.classList.remove('visible'));
+  }
+
+  d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(function(world) {
+    landGroup.selectAll("path")
+      .data(topojson.feature(world, world.objects.countries).features)
+      .enter().append("path")
+      .attr("d", path)
+      .attr("fill","#17263b")
+      .attr("stroke","#20344d")
+      .attr("stroke-width",0.5);
+
+    pinGroups = globeSvg.selectAll(".pin-group")
+      .data(pinData).enter()
+      .append("g").attr("class","pin-group")
+      .style("cursor","pointer")
+      .on("mouseover", function(event, d) {
+        if (isZoomed) return;
+        globeTooltip.style("opacity",1)
+          .html(`<img src="${d.img}" alt="${d.title}"/><strong>${d.title}</strong>`)
+          .style("left",(event.clientX+16)+"px")
+          .style("top",(event.clientY-50)+"px");
+      })
+      .on("mousemove", function(event) {
+        globeTooltip.style("left",(event.clientX+16)+"px").style("top",(event.clientY-50)+"px");
+      })
+      .on("mouseout", function() { globeTooltip.style("opacity",0); })
+      .on("click", function(event, d) {
+        flyToGlobe(d.coords[0], d.coords[1], d.id);
+      });
+
+    [0, 0.8, 1.6].forEach((delay, i) => {
+      pinGroups.append("circle")
+        .attr("class","radar-ring" + (i>0?` radar-delay-${i}`:''))
+        .attr("fill","none").attr("stroke", d => d.color)
+        .style("animation-delay", delay+'s');
+    });
+
+    pinGroups.append("circle")
+      .attr("r", 7).attr("fill", d => d.color)
+      .attr("stroke","#0b1421").attr("stroke-width",1.5)
+      .style("filter", d => `drop-shadow(0 0 4px ${d.color})`);
+
+    pinGroups.append("circle").attr("r",26).attr("fill","transparent");
+
+    updateGlobe();
+  });
+
+  globeSvg.call(d3.drag()
+    .on("start", () => { isInteracting = true; })
+    .on("drag", (event) => {
+      if (isZoomed) return;
+      const r = projection.rotate();
+      projection.rotate([r[0] + event.dx*0.4, r[1] - event.dy*0.4]);
+      updateGlobe();
+      globeTooltip.style("opacity",0);
+    })
+    .on("end", () => { setTimeout(() => { isInteracting = false; }, 3000); })
+  );
+
+  d3.timer(() => {
+    if (!isInteracting && !isZoomed) {
+      currentRotate = projection.rotate();
+      currentRotate[0] += 0.15;
+      projection.rotate(currentRotate);
+      updateGlobe();
+    }
+  });
+
+  window.flyToGlobe = function(lon, lat, id) {
+    isInteracting = true;
+    isZoomed = true;
+    container.classList.add('zoomed');
+    globeTooltip.style("opacity",0);
+
+    document.querySelectorAll('.rainfall-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('active');
+
+    const targetScale = GS * 0.46 * 1.75;
+    const startScale = projection.scale();
+
+    d3.transition().duration(900)
+      .tween("flyTo", function() {
+        const rInterp = d3.interpolate(projection.rotate(), [-lon, -lat, 0]);
+        const sInterp = d3.interpolate(startScale, targetScale);
+        return function(t) {
+          currentRotate = rInterp(t);
+          projection.rotate(currentRotate).scale(sInterp(t));
+          updateGlobe();
+        };
+      })
+      .on("end", function() {
+        showPanel(id);
+        setTimeout(() => { isInteracting = false; }, 500);
+      });
+  };
+
+  window.resetGlobe = function() {
+    isInteracting = true;
+    isZoomed = false;
+    container.classList.remove('zoomed');
+
+    document.querySelectorAll('.rainfall-card').forEach(c => c.classList.remove('active'));
+    hidePanel();
+    currentRegionFeature = null;
+    regionOutline.style('display','none');
+
+    const targetScale = GS * 0.46;
+    const startScale = projection.scale();
+
+    d3.transition().duration(700)
+      .tween("resetGlobe", function() {
+        const sInterp = d3.interpolate(startScale, targetScale);
+        return function(t) {
+          projection.scale(sInterp(t));
+          updateGlobe();
+        };
+      })
+      .on("end", () => { setTimeout(() => { isInteracting = false; }, 500); });
+  };
+
+  window.addEventListener('resize', () => {
+    const newSize = getGlobeSize();
+    if (Math.abs(newSize - GS) < 10) return;
+    GS = newSize;
+    globeSvg.attr('width',GS).attr('height',GS).attr('viewBox',`0 0 ${GS} ${GS}`);
+    projection.scale(GS*0.46).translate([GS/2,GS/2]);
+    updateGlobe();
+  });
+
+  // Find‑your‑region search (same as before)
+  const AR6_ALIASES = {
+    'san diego':'NCA','mexico city':'NCA','mexico':'NCA','guadalajara':'NCA','houston':'NCA','phoenix':'NCA','monterrey':'NCA',
+    'los angeles':'WNA','san francisco':'WNA','las vegas':'WNA','denver':'WNA','salt lake city':'WNA','california':'WNA',
+    'seattle':'NWN','portland':'NWN','vancouver':'NWN','calgary':'NWN','alaska':'NWN',
+    'chicago':'CNA','dallas':'CNA','kansas city':'CNA','minneapolis':'CNA','texas':'CNA',
+    'new york':'ENA','washington':'ENA','atlanta':'ENA','miami':'ENA','toronto':'ENA','florida':'ENA',
+    'boston':'NEN','montreal':'NEN','quebec':'NEN',
+    'guatemala':'SCA','panama':'SCA','costa rica':'SCA','nicaragua':'SCA','honduras':'SCA','el salvador':'SCA',
+    'cuba':'CAR','jamaica':'CAR','haiti':'CAR','dominican republic':'CAR','puerto rico':'CAR','caribbean':'CAR','bahamas':'CAR',
+    'bogota':'NWS','colombia':'NWS','quito':'NWS','ecuador':'NWS',
+    'lima':'SWS','peru':'SWS','santiago':'SWS','chile':'SWS',
+    'venezuela':'NSA','caracas':'NSA','guyana':'NSA',
+    'manaus':'NES','amazon':'NES','recife':'NES','fortaleza':'NES',
+    'brasilia':'SAM','bolivia':'SAM','la paz':'SAM',
+    'sao paulo':'SES','rio de janeiro':'SES','buenos aires':'SES','argentina':'SES','uruguay':'SES','paraguay':'SES','montevideo':'SES',
+    'patagonia':'SSA',
+    'london':'WCE','paris':'WCE','berlin':'WCE','amsterdam':'WCE','brussels':'WCE','germany':'WCE','france':'WCE','uk':'WCE','england':'WCE','vienna':'WCE','zurich':'WCE','switzerland':'WCE','austria':'WCE','netherlands':'WCE',
+    'madrid':'MED','barcelona':'MED','rome':'MED','milan':'MED','athens':'MED','lisbon':'MED','spain':'MED','italy':'MED','greece':'MED','portugal':'MED','turkey':'MED','istanbul':'MED','morocco':'MED','tunisia':'MED','mediterranean':'MED',
+    'stockholm':'NEU','oslo':'NEU','helsinki':'NEU','copenhagen':'NEU','norway':'NEU','sweden':'NEU','finland':'NEU','denmark':'NEU',
+    'warsaw':'EEU','kyiv':'EEU','kiev':'EEU','poland':'EEU','ukraine':'EEU','romania':'EEU','moscow':'EEU','belarus':'EEU',
+    'novosibirsk':'WSB','siberia':'WSB',
+    'yakutsk':'ESB',
+    'cairo':'SAH','algiers':'SAH','sahara':'SAH','libya':'SAH','egypt':'SAH','algeria':'SAH','sudan':'SAH','chad':'SAH','niger':'SAH','timbuktu':'SAH',
+    'lagos':'WAF','nigeria':'WAF','accra':'WAF','ghana':'WAF','senegal':'WAF','dakar':'WAF','ivory coast':'WAF','mali':'WAF',
+    'kinshasa':'CAF','congo':'CAF','cameroon':'CAF','gabon':'CAF',
+    'nairobi':'NEAF','ethiopia':'NEAF','addis ababa':'NEAF','somalia':'NEAF','eritrea':'NEAF',
+    'kenya':'SEAF','tanzania':'SEAF','dar es salaam':'SEAF','zambia':'SEAF','malawi':'SEAF',
+    'johannesburg':'ESAF','south africa':'ESAF','mozambique':'ESAF','zimbabwe':'ESAF','pretoria':'ESAF',
+    'cape town':'WSAF','namibia':'WSAF','angola':'WSAF','botswana':'WSAF',
+    'madagascar':'MDG','antananarivo':'MDG',
+    'riyadh':'ARP','dubai':'ARP','saudi arabia':'ARP','yemen':'ARP','oman':'ARP','uae':'ARP','qatar':'ARP','kuwait':'ARP','jeddah':'ARP',
+    'tehran':'WCA','iran':'WCA','baghdad':'WCA','iraq':'WCA','kabul':'WCA','afghanistan':'WCA','syria':'WCA',
+    'almaty':'ECA','kazakhstan':'ECA','uzbekistan':'ECA','mongolia':'ECA','tashkent':'ECA',
+    'delhi':'SAS','mumbai':'SAS','new delhi':'SAS','india':'SAS','pakistan':'SAS','karachi':'SAS','dhaka':'SAS','bangladesh':'SAS','nepal':'SAS','sri lanka':'SAS','kolkata':'SAS','bangalore':'SAS',
+    'lhasa':'TIB','tibet':'TIB','himalaya':'TIB',
+    'beijing':'EAS','shanghai':'EAS','china':'EAS','tokyo':'EAS','japan':'EAS','seoul':'EAS','korea':'EAS','taiwan':'EAS','hong kong':'EAS','osaka':'EAS',
+    'bangkok':'SEA','thailand':'SEA','jakarta':'SEA','indonesia':'SEA','manila':'SEA','philippines':'SEA','vietnam':'SEA','hanoi':'SEA','singapore':'SEA','malaysia':'SEA','kuala lumpur':'SEA',
+    'sydney':'EAU','melbourne':'EAU','brisbane':'EAU','canberra':'EAU',
+    'perth':'SAU','adelaide':'SAU',
+    'darwin':'NAU',
+    'alice springs':'CAU',
+    'auckland':'NZ','wellington':'NZ','new zealand':'NZ',
+    'reykjavik':'GIC','greenland':'GIC','iceland':'GIC',
+  };
+
+  let ar6Centroids = {}, ar6FeatureByAbbr = {}, ar6Names = {}, ar6Series = {}, ar6Times = [];
+  let searchIndex = [], currentResults = [], activeResultIdx = -1;
+
+  Promise.all([
+    d3.json('ar6_regions.geojson').catch(() => null),
+    d3.json('region_series_ar6.json').catch(() => null),
+  ]).then(([geo, ser]) => {
+    if (!geo || !ser) { console.warn('region search: data missing'); return; }
+    ar6Names = ser.names; ar6Series = ser.regions; ar6Times = ser.times;
+    geo.features.forEach(f => {
+      const ab = f.properties.abbrev;
+      if (!ar6Series[ab]) return;
+      ar6FeatureByAbbr[ab] = f;
+      ar6Centroids[ab] = d3.geoCentroid(f);
+    });
+    searchIndex = Object.keys(ar6Series).map(ab => {
+      const name = ar6Names[ab] || ab;
+      const aliases = Object.keys(AR6_ALIASES).filter(k => AR6_ALIASES[k] === ab);
+      return { abbr: ab, name, aliases };
+    });
+    wireSearchInput();
+  });
+
+  function cap(s){ return s.replace(/\b\w/g, c => c.toUpperCase()); }
+
+  function searchRegions(q) {
+    q = q.trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    searchIndex.forEach(e => {
+      let score = -1, hitAlias = null;
+      for (const a of e.aliases) {
+        if (a === q) { if (score < 100){ score = 100; hitAlias = a; } }
+        else if (a.startsWith(q)) { if (score < 80){ score = 80; hitAlias = a; } }
+        else if (a.includes(q)) { if (score < 50){ score = 50; hitAlias = a; } }
+      }
+      if (e.abbr.toLowerCase() === q && score < 90) score = 90;
+      const nm = e.name.toLowerCase().replace(/[.\-&]/g, ' ');
+      if (nm.startsWith(q) && score < 70) score = 70;
+      else if (nm.includes(q) && score < 40) score = 40;
+      if (score >= 0) out.push({ e, score, hitAlias });
+    });
+    out.sort((a, b) => b.score - a.score || a.e.name.localeCompare(b.e.name));
+    return out.slice(0, 8);
+  }
+
+  function wireSearchInput() {
+    const input = document.getElementById('region-search-input');
+    const box = document.getElementById('region-search-results');
+    if (!input || !box) return;
+
+    function render(results) {
+      currentResults = results; activeResultIdx = -1;
+      if (!results.length) {
+        box.innerHTML = '<div class="region-search-empty">No matching region — try a country or major city</div>';
+        box.classList.add('open'); return;
+      }
+      box.innerHTML = results.map((r, i) => {
+        const showAlias = r.hitAlias && cap(r.hitAlias) !== r.e.name;
+        const primary = showAlias ? cap(r.hitAlias) : r.e.name;
+        const sub = showAlias ? r.e.name : r.e.abbr;
+        return `<div class="region-search-item" data-abbr="${r.e.abbr}" data-i="${i}">`
+             + `<span class="rs-name">${primary}</span><span class="rs-sub">${sub}</span></div>`;
+      }).join('');
+      box.classList.add('open');
+      box.querySelectorAll('.region-search-item').forEach(el => {
+        el.addEventListener('mousedown', ev => { ev.preventDefault(); pick(el.dataset.abbr); });
+      });
+    }
+    function hl(items){ items.forEach((el, i) => el.classList.toggle('active', i === activeResultIdx)); }
+    function pick(abbr){
+      input.value = ar6Names[abbr] || abbr;
+      box.classList.remove('open');
+      input.blur();
+      flyToRegion(abbr);
+    }
+
+    input.addEventListener('input', () => render(searchRegions(input.value)));
+    input.addEventListener('focus', () => { if (input.value) render(searchRegions(input.value)); });
+    input.addEventListener('blur', () => setTimeout(() => box.classList.remove('open'), 120));
+    input.addEventListener('keydown', e => {
+      const items = box.querySelectorAll('.region-search-item');
+      if (e.key === 'ArrowDown') { e.preventDefault(); activeResultIdx = Math.min(items.length - 1, activeResultIdx + 1); hl(items); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); activeResultIdx = Math.max(0, activeResultIdx - 1); hl(items); }
+      else if (e.key === 'Enter') {
+        if (activeResultIdx >= 0 && currentResults[activeResultIdx]) pick(currentResults[activeResultIdx].e.abbr);
+        else if (currentResults[0]) pick(currentResults[0].e.abbr);
+      } else if (e.key === 'Escape') { box.classList.remove('open'); input.blur(); }
+    });
+  }
+
+  window.flyToRegion = function(abbr) {
+    const c = ar6Centroids[abbr];
+    if (!c) return;
+    isInteracting = true; isZoomed = true;
+    container.classList.add('zoomed');
+    globeTooltip.style('opacity', 0);
+    document.querySelectorAll('.rainfall-card').forEach(x => x.classList.remove('active'));
+    currentRegionFeature = ar6FeatureByAbbr[abbr];
+    regionOutline.datum(currentRegionFeature).style('display', null);
+
+    const targetScale = GS * 0.46 * 1.75;
+    const startScale = projection.scale();
+    d3.transition().duration(900)
+      .tween('flyRegion', function() {
+        const rI = d3.interpolate(projection.rotate(), [-c[0], -c[1], 0]);
+        const sI = d3.interpolate(startScale, targetScale);
+        return function(t) {
+          currentRotate = rI(t);
+          projection.rotate(currentRotate).scale(sI(t));
+          updateGlobe();
+        };
+      })
+      .on('end', function() { fillSearchPanel(abbr); setTimeout(() => { isInteracting = false; }, 500); });
+  };
+
+  function fillSearchPanel(abbr) {
+    const name = ar6Names[abbr] || abbr;
+    const vals = ar6Series[abbr];
+    const v2100 = vals[vals.length - 1];
+    const dir = v2100 > 1 ? 'wetter' : v2100 < -1 ? 'drier' : 'little changed';
+    document.querySelectorAll('.region-panel').forEach(p => p.classList.remove('visible'));
+    document.getElementById('search-panel-title').textContent = `${name.replace(/-/g,' ')} · Projected Change`;
+    const stat = document.getElementById('search-stat-2100');
+    stat.textContent = `${v2100 > 0 ? '+' : ''}${v2100.toFixed(1)}%`;
+    stat.className = 'stat-val ' + (v2100 > 1 ? 'positive' : v2100 < -1 ? 'negative' : '');
+    document.getElementById('search-stat-dir').textContent = cap(dir);
+    document.getElementById('search-verdict').textContent = (dir === 'little changed')
+      ? `By 2100, ${name.replace(/-/g,' ')} sees little net change in mean precipitation vs. the 1980–2010 baseline under SSP5-8.5 (high emissions) — though seasonal timing may still shift.`
+      : `By 2100, ${name.replace(/-/g,' ')} is projected ~${Math.abs(Math.round(v2100))}% ${dir} than the 1980–2010 baseline under SSP5-8.5 (high emissions).`;
+    drawSearchSpark(abbr);
+    document.getElementById('panel-search').classList.add('visible');
+  }
+
+  function drawSearchSpark(abbr) {
+    const svgEl = d3.select('#sparkline-search'); svgEl.selectAll('*').remove();
+    const startI = Math.max(0, ar6Times.findIndex(t => t >= 1980));
+    const years = ar6Times.slice(startI), vals = ar6Series[abbr].slice(startI);
+    const sw = 300, sh = 80, sm = { t:12, r:10, b:18, l:30 };
+    const si = sw - sm.l - sm.r, sih = sh - sm.t - sm.b;
+    const gs = svgEl.append('g').attr('transform', `translate(${sm.l},${sm.t})`);
+    const x = d3.scaleLinear().domain([years[0], years[years.length-1]]).range([0, si]);
+    const ext = d3.extent(vals), pad = Math.max(1, (ext[1]-ext[0]) * 0.18);
+    const y = d3.scaleLinear().domain([Math.min(0,ext[0])-pad, Math.max(0,ext[1])+pad]).range([sih, 0]);
+    gs.append('line').attr('x1',0).attr('x2',si).attr('y1',y(0)).attr('y2',y(0))
+      .attr('stroke','rgba(255,255,255,0.18)').attr('stroke-dasharray','3,3');
+    gs.append('path').datum(vals).attr('fill','none').attr('stroke','#63b3ed').attr('stroke-width',1.8)
+      .attr('d', d3.line().x((d,i)=>x(years[i])).y(d=>y(d)).curve(d3.curveCatmullRom));
+    gs.append('g').attr('transform',`translate(0,${sih})`)
+      .call(d3.axisBottom(x).ticks(4).tickFormat(d3.format('d')).tickSize(2))
+      .call(ax=>ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',8))
+      .call(ax=>ax.select('.domain').attr('stroke','rgba(255,255,255,0.1)'));
+    gs.append('g').call(d3.axisLeft(y).ticks(3).tickFormat(d=>d+'%').tickSize(2))
+      .call(ax=>ax.selectAll('text').attr('fill','#8a9eb5').attr('font-size',8))
+      .call(ax=>ax.select('.domain').attr('stroke','rgba(255,255,255,0.1)'));
+    gs.append('text').attr('x',si/2).attr('y',-3).attr('text-anchor','middle')
+      .attr('font-size',7.5).attr('fill','#8a9eb5').text('% change vs 1980–2010 baseline');
+  }
+})();
+
+
+// ─── MAP VIZ (precipitation anomaly) ────────────────────────────────────
+;(function () {
+  const VMAX = 30;
+  const BASELINE_MIN = 0.2;
+  const TEAL = '#2b7fbf';
+  const GREY = '#b3bdc8';
+  const color = v => d3.interpolateBrBG((Math.max(-VMAX, Math.min(VMAX, v)) + VMAX) / (2*VMAX));
+
+  const MW = 900;
+  const MH = 468;
+
+  const projection = d3.geoNaturalEarth1().fitExtent([[2,2],[MW-2,MH-2]],{type:'Sphere'});
+  const path = d3.geoPath(projection);
+
+  const SCENARIOS = [
+    { id:'ssp126', file:'map_anomaly_ssp126.json', name:'SSP1-2.6', sub:'low emissions' },
+    { id:'ssp245', file:'map_anomaly_ssp245.json', name:'SSP2-4.5', sub:'middle of the road' },
+    { id:'ssp585', file:'map_anomaly_ssp585.json', name:'SSP5-8.5', sub:'high emissions' },
+  ];
+  const START_YEAR = 1980, OPEN_YEAR = 2020, STEP_MS = 1200;
+
+  const SCN = {};
+  const series = {};
+  let MAP = null;
+  let TIMES = [], startIdx = 0, frameIdx = 0, current = 'ssp585';
+  let playing = false, timer = null, ctx, svgM;
+
+  Promise.all(
+    SCENARIOS.map(s => d3.json(s.file).catch(() => null))
+      .concat([ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json') ])
+  ).then(results => {
+    const world = results.pop();
+    SCENARIOS.forEach((s, i) => { SCN[s.id] = results[i]; });
+    if (SCENARIOS.some(s => !SCN[s.id])) { console.warn('global-shift: scenario data missing'); return; }
+
+    MAP = SCN[current];
+    TIMES = MAP.times;
+    startIdx = TIMES.findIndex(t => t >= START_YEAR); if (startIdx < 0) startIdx = 0;
+    frameIdx = d3.minIndex(TIMES, t => Math.abs(t - OPEN_YEAR));
+    SCENARIOS.forEach(s => { series[s.id] = computeGlobal(SCN[s.id]); });
+
+    const land = topojson.feature(world, world.objects.land);
+    setupCanvas(); setupOverlay(land);
+    buildToggle(); setupLegend(); setupSlider(); buildLine();
+    render();
+  });
+
+  function computeGlobal(data) {
+    const { lat, lon, baseline, anomaly } = data;
+    const w = lat.map(la => Math.cos(la * Math.PI / 180));
+    const out = [];
+    for (let i = startIdx; i < data.times.length; i++) {
+      const frame = anomaly[i];
+      let num = 0, den = 0;
+      for (let a = 0; a < lat.length; a++) {
+        const row = frame[a], brow = baseline[a], wa = w[a];
+        for (let b = 0; b < lon.length; b++) {
+          const an = row[b], ba = brow[b];
+          if (an == null || ba == null || ba < BASELINE_MIN) continue;
+          num += wa * an; den += wa * ba;
+        }
+      }
+      out.push({ year: data.times[i], val: den > 0 ? num / den * 100 : null });
+    }
+    return out;
+  }
+
+  function setupCanvas() {
+    const canvas = document.getElementById('map-grid');
+    const dpr = window.devicePixelRatio||1;
+    canvas.width=MW*dpr; canvas.height=MH*dpr;
+    ctx = canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  }
+
+  function drawGrid() {
+    const {lat, lon, baseline} = MAP;
+    const frame = MAP.anomaly[frameIdx];
+
+    const xOffset = -1;
+
+    const eps = 0.05;
+    const dLat = Math.abs(lat[1] - lat[0]) / 2;
+    const dLon = Math.abs(lon[1] - lon[0]) / 2;
+
+    ctx.clearRect(0, 0, MW, MH);
+
+    for (let i = 0; i < lat.length; i++) {
+      const la = lat[i];
+      for (let j = 0; j < lon.length; j++) {
+        const anom = frame[i][j], base = baseline[i][j];
+        if (anom == null || base == null || base < BASELINE_MIN) continue;
+
+        let lo = lon[j];
+        if (lo > 180) lo -= 360;
+
+        const corners = [
+            [lo - dLon - eps, la - dLat - eps],
+            [lo + dLon + eps, la - dLat - eps],
+            [lo + dLon + eps, la + dLat + eps],
+            [lo - dLon - eps, la + dLat + eps]
+        ];
+
+        const projected = corners.map(c => projection(c));
+        if (projected.some(p => p === null)) continue;
+
+        ctx.beginPath();
+        ctx.moveTo(projected[0][0] + xOffset, projected[0][1]);
+        for (let k = 1; k < 4; k++) {
+            ctx.lineTo(projected[k][0] + xOffset, projected[k][1]);
+        }
+        ctx.closePath();
+
+        ctx.fillStyle = color(anom / base * 100);
+        ctx.fill();
+      }
+    }
+  }
+
+  function setupOverlay(land) {
+    svgM = d3.select('#map-overlay').attr('width',MW).attr('height',MH).attr('viewBox',`0 0 ${MW} ${MH}`);
+    svgM.append('path').datum(d3.geoGraticule10()).attr('d',path)
+      .attr('fill','none').attr('stroke','rgba(30,42,56,0.10)').attr('stroke-width',0.5);
+    svgM.append('path').datum({type:'Sphere'}).attr('d',path)
+      .attr('fill','none').attr('stroke','rgba(30,42,56,0.5)').attr('stroke-width',1);
+    svgM.append('path').datum(land).attr('d',path)
+      .attr('fill','none').attr('stroke','rgba(30,42,56,0.75)').attr('stroke-width',0.7);
+  }
+
+  function buildToggle() {
+    const box = document.getElementById('scenario-toggle');
+    SCENARIOS.forEach(s => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.id = s.id;
+      btn.innerHTML = `<span class="scn-id">${s.name}</span><span class="scn-sub">${s.sub}</span>`;
+      btn.classList.toggle('active', s.id === current);
+      btn.addEventListener('click', () => setScenario(s.id));
+      box.appendChild(btn);
+    });
+  }
+  function setScenario(id) {
+    if (id === current || !SCN[id]) return;
+    current = id; MAP = SCN[id];
+    document.querySelectorAll('#scenario-toggle button').forEach(b =>
+      b.classList.toggle('active', b.dataset.id === id));
+    const s = SCENARIOS.find(x => x.id === id);
+    document.getElementById('map-card-sub').textContent =
+      `CESM2 · historical + ${s.name} (${s.sub}) · % change in mean precipitation`;
+    styleLines();
+    render();
+  }
+
+  function setupLegend() {
+    const stops = d3.range(0,1.01,0.05).map(t=>`${d3.interpolateBrBG(t)} ${Math.round(t*100)}%`).join(', ');
+    document.getElementById('map-legend-bar').style.background=`linear-gradient(to right, ${stops})`;
+    document.getElementById('map-legend-ticks').innerHTML=
+      d3.range(-VMAX,VMAX+1,10).map(v=>`<span>${v>0?'+':''}${v}%</span>`).join('');
+  }
+
+  function setupSlider() {
+    const slider = document.getElementById('map-slider');
+    slider.min = startIdx;
+    slider.max = TIMES.length-1;
+    slider.value = frameIdx;
+    slider.addEventListener('input',()=>{ frameIdx=Math.max(startIdx,+slider.value); render(); });
+    document.getElementById('map-play').addEventListener('click',togglePlay);
+  }
+  function togglePlay() {
+    if (playing) { stopPlay(); return; }
+    if (frameIdx >= TIMES.length-1) frameIdx = startIdx;
+    playing = true;
+    document.getElementById('map-play').textContent='❚❚ Pause';
+    document.getElementById('map-slider').value = frameIdx;
+    render();
+    timer = setInterval(()=>{
+      if (frameIdx >= TIMES.length-1) { stopPlay(); return; }
+      frameIdx++;
+      document.getElementById('map-slider').value = frameIdx;
+      render();
+    }, STEP_MS);
+  }
+  function stopPlay() {
+    playing = false;
+    if (timer) { clearInterval(timer); timer = null; }
+    document.getElementById('map-play').textContent='▶ Play';
+  }
+
+  const lc = { w:900, h:220, m:{ t:16, r:78, b:30, l:46 } };
+  let lcX, lcY, lcG, lcMarker, lcDot;
+  const linePaths = {}, endLabels = {};
+  function buildLine() {
+    const iw = lc.w-lc.m.l-lc.m.r, ih = lc.h-lc.m.t-lc.m.b;
+    d3.select('#map-line').selectAll('*').remove();
+    lcG = d3.select('#map-line').append('g').attr('transform',`translate(${lc.m.l},${lc.m.t})`);
+
+    const years = series[current].map(d=>d.year);
+    lcX = d3.scaleLinear().domain(d3.extent(years)).range([0,iw]);
+    const allVals = [].concat(...SCENARIOS.map(s=>series[s.id].map(d=>d.val))).filter(v=>v!=null);
+    const ext = d3.extent(allVals), pad = Math.max(1,(ext[1]-ext[0])*0.15);
+    lcY = d3.scaleLinear().domain([Math.min(0,ext[0])-pad, Math.max(0,ext[1])+pad]).range([ih,0]).nice();
+
+    lcG.append('g').attr('transform',`translate(0,${ih})`)
+      .call(d3.axisBottom(lcX).tickFormat(d3.format('d')))
+      .call(ax=>ax.selectAll('text').attr('fill','#5a6e82'));
+    lcG.append('g').call(d3.axisLeft(lcY).ticks(5).tickFormat(d=>d+'%'))
+      .call(ax=>ax.selectAll('text').attr('fill','#5a6e82'));
+    lcG.append('line').attr('x1',0).attr('x2',iw).attr('y1',lcY(0)).attr('y2',lcY(0))
+      .attr('stroke','#9fb0c2').attr('stroke-dasharray','3,3');
+
+    const lineGen = d3.line().x(d=>lcX(d.year)).y(d=>lcY(d.val)).defined(d=>d.val!=null);
+    SCENARIOS.forEach(s => {
+      linePaths[s.id] = lcG.append('path').datum(series[s.id]).attr('fill','none').attr('d',lineGen);
+      const last = series[s.id][series[s.id].length-1];
+      endLabels[s.id] = lcG.append('text').attr('x',iw+6).attr('y',lcY(last.val)).attr('dy','0.32em')
+        .attr('font-size',10).text(s.name);
+    });
+
+    lcMarker = lcG.append('line').attr('y1',0).attr('y2',ih).attr('stroke','#1e2a38').attr('stroke-width',1);
+    lcDot = lcG.append('circle').attr('r',4).attr('fill',TEAL).attr('stroke','#fff').attr('stroke-width',1.5);
+
+    styleLines();
+    updateMarker();
+  }
+  function styleLines() {
+    SCENARIOS.forEach(s => {
+      const on = s.id === current;
+      if (linePaths[s.id]) linePaths[s.id].attr('stroke',on?TEAL:GREY).attr('stroke-width',on?2.6:1.4).attr('opacity',on?1:0.7).raise();
+      if (endLabels[s.id]) endLabels[s.id].attr('fill',on?TEAL:'#9aa7b4').attr('font-weight',on?700:400).raise();
+    });
+    if (lcMarker) lcMarker.raise();
+    if (lcDot) lcDot.raise();
+    const s = SCENARIOS.find(x=>x.id===current);
+    document.getElementById('map-detail-title').textContent = `Global mean · ${s.name} (${s.sub})`;
+  }
+  function updateMarker() {
+    if (!lcG) return;
+    const year = TIMES[frameIdx];
+    const pt = series[current].find(d => d.year === year);
+    lcMarker.attr('x1',lcX(year)).attr('x2',lcX(year));
+    if (pt && pt.val!=null) lcDot.attr('cx',lcX(year)).attr('cy',lcY(pt.val)).style('display',null);
+    else lcDot.style('display','none');
+    const v = pt ? pt.val : null;
+    document.getElementById('map-detail-sub').textContent =
+      `${year}: ${v==null?'n/a':(v>0?'+':'')+v.toFixed(1)+'%'} global mean precipitation vs. 1980–2010`;
+  }
+
+  function render() {
+    drawGrid();
+    document.getElementById('map-year').textContent=TIMES[frameIdx];
+    updateMarker();
+  }
+})();
+
+
+// ==================== NEW: LAI VEGETATION BAR CHART ====================
+(function () {
+  const laiSvg = d3.select("#lai-bar-svg");
+  const laiWidth = 800, laiHeight = 360;
+  const laiMargin = { top: 50, right: 30, bottom: 50, left: 160 };
+  const innerWidth = laiWidth - laiMargin.left - laiMargin.right;
+  const innerHeight = laiHeight - laiMargin.top - laiMargin.bottom;
+
+  const tooltip = d3.select("body").append("div")
+    .attr("class", "lai-tooltip");
+
+  d3.csv("final_lai_data.csv").then(raw => {
+    // Filter for years 2070–2100
+    const endCentury = raw.filter(d => +d.year >= 2070);
+    // Group by region, compute mean % change
+    const regionMap = new Map();
+    endCentury.forEach(d => {
+      const reg = d.region;
+      const pct = +d.lai_pct_change;
+      if (isNaN(pct)) return;
+      if (!regionMap.has(reg)) regionMap.set(reg, { sum: 0, count: 0 });
+      const entry = regionMap.get(reg);
+      entry.sum += pct;
+      entry.count++;
+    });
+    const regionData = Array.from(regionMap, ([region, { sum, count }]) => ({
+      region,
+      pctChange: sum / count
+    }));
+    // Order by pctChange (ascending for horizontal bar chart)
+    regionData.sort((a, b) => a.pctChange - b.pctChange);
+
+    const x = d3.scaleLinear()
+      .domain([d3.min(regionData, d => Math.min(0, d.pctChange - 3)), d3.max(regionData, d => d.pctChange + 3)])
+      .range([0, innerWidth]);
+
+    const y = d3.scaleBand()
+      .domain(regionData.map(d => d.region))
+      .range([0, innerHeight])
+      .padding(0.3);
+
+    const g = laiSvg.append("g")
+      .attr("transform", `translate(${laiMargin.left},${laiMargin.top})`);
+
+    // Axes
+    g.append("g")
+      .call(d3.axisLeft(y).tickSize(0))
+      .call(ax => ax.selectAll("text").attr("fill", "#cdd7e2").attr("font-size", "11px"));
+
+    g.append("g")
+      .attr("transform", `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "%"))
+      .call(ax => ax.selectAll("text").attr("fill", "#8a9eb5"))
+      .call(ax => ax.select(".domain").attr("stroke", "#2b7fbf55"));
+
+    // Vertical zero line
+    g.append("line")
+      .attr("x1", x(0))
+      .attr("x2", x(0))
+      .attr("y1", 0)
+      .attr("y2", innerHeight)
+      .attr("stroke", "#63b3ed")
+      .attr("stroke-dasharray", "4,3")
+      .attr("stroke-width", 1);
+
+    // Bars
+    g.selectAll(".lai-bar")
+      .data(regionData)
+      .enter()
+      .append("rect")
+      .attr("class", "lai-bar")
+      .attr("y", d => y(d.region))
+      .attr("x", d => x(Math.min(0, d.pctChange)))
+      .attr("width", d => Math.abs(x(d.pctChange) - x(0)))
+      .attr("height", y.bandwidth())
+      .attr("fill", d => d.pctChange < 0 ? "#c0392b" : "#1a7a4a")
+      .attr("rx", 4)
+      .on("mouseover", function(event, d) {
+        d3.select(this).attr("opacity", 0.8);
+        const consequenceText = d.region === "Tropics" ? "🌾 11% LAI loss → 12–18% lower maize/rice yields → food crisis for 1.2B people" :
+                                d.region === "Southern Mid-Latitudes" ? "🌵 8% loss → Patagonian wheat decline, livestock stress" :
+                                d.region === "Northern Mid-Latitudes" ? "🌲 5% gain (boreal greening) but more wildfires & permafrost thaw" :
+                                d.region === "Arctic / High North" ? "❄️ +6% LAI – shrub expansion, but ecosystem disruption" :
+                                "Antarctic / High South" ? "🧊 minimal change, but coastal ice–veg interactions uncertain" : "Vegetation shift";
+        tooltip.html(`<strong>${d.region}</strong><br/>${d.pctChange > 0 ? '+' : ''}${d.pctChange.toFixed(1)}% change<br/>${consequenceText}`)
+          .style("left", (event.clientX + 14) + "px")
+          .style("top", (event.clientY - 40) + "px")
+          .style("opacity", 1);
+      })
+      .on("mousemove", function(event) {
+        tooltip.style("left", (event.clientX + 14) + "px")
+               .style("top", (event.clientY - 40) + "px");
+      })
+      .on("mouseout", function() {
+        d3.select(this).attr("opacity", 1);
+        tooltip.style("opacity", 0);
+      });
+
+    // Value labels at the end of each bar
+    g.selectAll(".lai-label")
+      .data(regionData)
+      .enter()
+      .append("text")
+      .attr("x", d => x(d.pctChange) + (d.pctChange < 0 ? -6 : 6))
+      .attr("y", d => y(d.region) + y.bandwidth() / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", d => d.pctChange < 0 ? "end" : "start")
+      .attr("fill", "#eef1f5")
+      .attr("font-size", "10px")
+      .text(d => (d.pctChange > 0 ? "+" : "") + d.pctChange.toFixed(1) + "%");
+
+    // X-axis label
+    g.append("text")
+      .attr("x", innerWidth / 2)
+      .attr("y", innerHeight + 36)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#8a9eb5")
+      .attr("font-size", "10px")
+      .text("Projected % change in Leaf Area Index (LAI)");
+  }).catch(err => {
+    console.error("Error loading LAI CSV:", err);
+    d3.select("#lai-bar-svg")
+      .append("text")
+      .attr("x", laiWidth/2)
+      .attr("y", laiHeight/2)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#fc8181")
+      .text("⚠ Could not load final_lai_data.csv. Make sure the file is in the same folder.");
+  });
+})();
+</script>
+</body>
+</html>

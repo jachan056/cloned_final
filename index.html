@@ -987,8 +987,7 @@
     </div>
 
     <div class="closing-takeaway">
-      <p>Under high emissions, tropical vegetation declines by more than 10% which is the equivalent of losing an entire month of growing. For 1.2 billion people, this means a 15% drop in available food, leading to chronic food stres.”</p>
-      <div class="small">Data source: CMIP6 CESM2, SSP5‑8.5. LAI % change relative to 1980–2010 baseline.</div>
+      <p>Under high emissions, tropical vegetation declines by more than 10% which is the equivalent of losing an entire month of growing. For 1.2 billion people, this means a 15% drop in available food, leading to chronic food stress.”</p>
     </div>
   </div>
 </section>
@@ -1930,10 +1929,10 @@ g.append('text').attr('x',w/2).attr('y',hh+42)
       .attr("rx", 4)
       .on("mouseover", function(event, d) {
         d3.select(this).attr("opacity", 0.8);
-        const consequenceText = d.region === "Tropics" ? "🌾 11% LAI loss → 12–18% lower maize/rice yields → food crisis for 1.2B people" :
-                                d.region === "Southern Mid-Latitudes" ? "🌵 8% loss → Patagonian wheat decline, livestock stress" :
-                                d.region === "Northern Mid-Latitudes" ? "🌲 5% gain (boreal greening) but more wildfires & permafrost thaw" :
-                                d.region === "Arctic / High North" ? "❄️ +6% LAI – shrub expansion, but ecosystem disruption" :
+        const consequenceText = d.region === "Tropics" ? "11% LAI loss → 12–18% lower maize/rice yields → food crisis for 1.2B people" :
+                                d.region === "Southern Mid-Latitudes" ? "8% loss → Patagonian wheat decline, livestock stress" :
+                                d.region === "Northern Mid-Latitudes" ? "5% gain (boreal greening) but more wildfires & permafrost thaw" :
+                                d.region === "Arctic / High North" ? "+6% LAI – shrub expansion, but ecosystem disruption" :
                                 "Antarctic / High South" ? "🧊 minimal change, but coastal ice–veg interactions uncertain" : "Vegetation shift";
         tooltip.html(`<strong>${d.region}</strong><br/>${d.pctChange > 0 ? '+' : ''}${d.pctChange.toFixed(1)}% change<br/>${consequenceText}`)
           .style("left", (event.clientX + 14) + "px")
